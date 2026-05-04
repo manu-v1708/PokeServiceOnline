@@ -1,7 +1,7 @@
 // ============================================================
 //  POKESERVICE – Backend producción
 //  Stack: Node.js · Express · node-fetch · cors · swagger
-//  Base de datos: Supabase (nuevas API keys 2025)
+//  Base de datos: Supabase (Publishable key + RLS policy)
 //  Deploy: Render
 // ============================================================
 
@@ -13,9 +13,9 @@ const swaggerJsDoc = require('swagger-jsdoc');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Credenciales Supabase (nuevas keys 2025) ──────────────
-const SUPABASE_URL        = 'https://cazxvbycmisoljeuonct.supabase.co';
-const SUPABASE_SECRET_KEY = 'sb_secret_xL3639mY4IAKfvfP5ai54A__60AnYug';
+// ── Credenciales Supabase ─────────────────────────────────
+const SUPABASE_URL = 'https://cazxvbycmisoljeuonct.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Sq2eZV6TTVkkTARpmd9ENQ_l6cPlIdN';
 
 // Nombre exacto de la tabla en Supabase
 const TABLE_NAME = 'PokeService';
@@ -33,7 +33,6 @@ async function buscarPokemonEnSupabase(nombreOriginal) {
   const fetch = (await import('node-fetch')).default;
 
   // Capitalizar primera letra para coincidir con los datos en Supabase
-  // Ej: "sandile" → "Sandile", "charizard" → "Charizard"
   const nombreCapitalizado =
     nombreOriginal.charAt(0).toUpperCase() + nombreOriginal.slice(1).toLowerCase();
 
@@ -47,9 +46,8 @@ async function buscarPokemonEnSupabase(nombreOriginal) {
   const response = await fetch(url, {
     method : 'GET',
     headers: {
-      // Usar la Secret key como Authorization para bypassear RLS
-      'Authorization': `Bearer ${SUPABASE_SECRET_KEY}`,
-      'apikey'       : SUPABASE_SECRET_KEY,
+      'apikey'       : SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Content-Type' : 'application/json',
       'Accept'       : 'application/json'
     }
@@ -71,8 +69,8 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title      : 'PokeService API',
-      version    : '4.0.0',
-      description: 'Microservicio REST – Supabase nuevas keys + Render'
+      version    : '5.0.0',
+      description: 'Microservicio REST – Supabase Publishable key + RLS policy'
     },
     servers: [
       { url: 'https://pokeserviceonline.onrender.com', description: 'Producción' },
@@ -159,7 +157,7 @@ app.get('/', (_req, res) => {
   res.json({
     message: '🚀 PokeService API en línea',
     docs   : '/api-docs',
-    version: '4.0.0 – nuevas Supabase keys'
+    version: '5.0.0 – Publishable key + RLS policy'
   });
 });
 
