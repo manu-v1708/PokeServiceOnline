@@ -1,5 +1,5 @@
 // ============================================================
-//  POKESERVICE – Backend para producción
+//  POKESERVICE – Backend producción
 //  Stack: Node.js · Express · node-fetch · cors · swagger
 //  Base de datos: Supabase (PostgreSQL via REST API)
 //  Deploy: Render
@@ -17,14 +17,14 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cazxvbycmisoljeuonct.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhenh2YnljbWlzb2xqZXVvbmN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTEwMzUsImV4cCI6MjA5MzQ4NzAzNX0.dvNlPXVieeaQ8louQrNMP7MTxPOpUUQCIrxfh4gkXjM';
 
-// Nombre exacto de la tabla (respeta mayúsculas como en Supabase)
+// Nombre exacto de la tabla en Supabase
 const TABLE_NAME = 'PokeService';
 
 // ── Middlewares ───────────────────────────────────────────
 app.use(express.json());
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'OPTIONS'],
+  origin     : '*',
+  methods    : ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'apikey']
 }));
 
@@ -32,18 +32,22 @@ app.use(cors({
 async function buscarPokemonEnSupabase(nombreOriginal) {
   const fetch = (await import('node-fetch')).default;
 
-  // ✅ CORRECCIÓN CLAVE: Los nombres en Supabase tienen la primera
-  // letra en mayúscula (ej: "Sandile", "Charizard").
-  // Capitalizamos el nombre antes de buscar con eq (igual exacto).
+  // Capitalizar primera letra para coincidir con los datos en Supabase
+  // Ej: "sandile" → "Sandile", "charizard" → "Charizard"
   const nombreCapitalizado =
     nombreOriginal.charAt(0).toUpperCase() + nombreOriginal.slice(1).toLowerCase();
 
-  const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?nombre=eq.${encodeURIComponent(nombreCapitalizado)}&limit=1`;
+  // ✅ CORRECCIÓN: Los nombres de columnas en Supabase están en minúsculas
+  // (imagenfrontal, imagenposterior) — se seleccionan explícitamente
+  const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}`
+    + `?select=id,nombre,peso,altura,imagenfrontal,imagenposterior,poderes`
+    + `&nombre=eq.${encodeURIComponent(nombreCapitalizado)}`
+    + `&limit=1`;
 
-  console.log(`🔍 Buscando en Supabase: ${url}`);
+  console.log(`🔍 URL Supabase: ${url}`);
 
   const response = await fetch(url, {
-    method: 'GET',
+    method : 'GET',
     headers: {
       'apikey'       : SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -58,7 +62,7 @@ async function buscarPokemonEnSupabase(nombreOriginal) {
   }
 
   const data = await response.json();
-  console.log(`📦 Resultado Supabase:`, JSON.stringify(data));
+  console.log(`📦 Resultado:`, JSON.stringify(data));
   return data.length > 0 ? data[0] : null;
 }
 
@@ -68,7 +72,7 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title      : 'PokeService API',
-      version    : '2.0.0',
+      version    : '3.0.0',
       description: 'Microservicio REST – Supabase + Render'
     },
     servers: [
@@ -121,17 +125,19 @@ app.get('/pokemon/:nombre', async (req, res) => {
     if (Array.isArray(poke.poderes)) {
       poderes = poke.poderes;
     } else {
-      try { poderes = JSON.parse(poke.poderes); }
+      try   { poderes = JSON.parse(poke.poderes); }
       catch (_) { poderes = [poke.poderes]; }
     }
 
+    // ✅ Mapear nombres de columnas Supabase (minúsculas)
+    //    a los nombres que espera el frontend (camelCase)
     res.json({
       id             : poke.id,
       nombre         : poke.nombre,
       peso           : poke.peso,
       altura         : poke.altura,
-      imagenFrontal  : poke.imagenFrontal,
-      imagenPosterior: poke.imagenPosterior,
+      imagenFrontal  : poke.imagenfrontal,    // Supabase → imagenfrontal
+      imagenPosterior: poke.imagenposterior,  // Supabase → imagenposterior
       poderes        : poderes
     });
 
@@ -155,7 +161,7 @@ app.get('/', (_req, res) => {
   res.json({
     message: '🚀 PokeService API en línea',
     docs   : '/api-docs',
-    version: '2.1.0 – Supabase + capitalización corregida'
+    version: '3.0.0 – columnas Supabase corregidas'
   });
 });
 
