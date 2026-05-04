@@ -49,8 +49,9 @@ async function buscarPokemonEnSupabase(nombre) {
   // Importar fetch (compatible con Node 18+ nativo o node-fetch)
   const fetch = (await import('node-fetch')).default;
 
-  // Construir URL con filtro ilike (insensible a mayúsculas)
-  const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?nombre=ilike.${encodeURIComponent(nombre)}&limit=1`;
+  // Capitalizar primera letra para coincidir con cómo están guardados en Supabase
+  const nombreCapitalizado = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+  const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?nombre=eq.${encodeURIComponent(nombreCapitalizado)}&limit=1`;
 
   const response = await fetch(url, {
     method: 'GET',
