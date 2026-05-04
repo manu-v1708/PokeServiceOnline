@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PokeService – Pokédex</title>
+
+  <!-- Bootstrap 5 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Caveat:wght@700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ══════════════════════════════════════════════════════════
+       VARIABLES – Paleta orgánica bosque / herbario
+    ══════════════════════════════════════════════════════════ */
+    :root {
+      --cream       : #f5f0e8;
+      --cream-dark  : #ede6d6;
+      --forest      : #2d4a2d;
+      --forest-mid  : #3d6b3d;
+      --moss        : #6b8f5e;
+      --sage        : #a8c49a;
+      --terra       : #c4673a;
+      --gold        : #c9a84c;
+      --ink         : #1e2a1e;
+      --border      : rgba(45, 74, 45, 0.18);
+      --shadow-soft : 0 8px 40px rgba(45,74,45,0.12);
+      --radius-lg   : 24px;
+      --radius-sm   : 12px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       BASE
+    ══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--cream);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Textura de grano sutil */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.032'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Mancha acuarela arriba-derecha */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -120px; right: -120px;
+      width: 500px; height: 500px;
+      border-radius: 60% 40% 70% 30% / 50% 60% 40% 50%;
+      background: radial-gradient(ellipse, rgba(168,196,154,.26) 0%, rgba(107,143,94,.06) 60%, transparent 80%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Mancha inferior-izquierda */
+    .blob-bottom {
+      position: fixed;
+      bottom: -80px; left: -100px;
+      width: 400px; height: 400px;
+      border-radius: 40% 60% 30% 70% / 60% 40% 70% 30%;
+      background: radial-gradient(ellipse, rgba(196,103,58,.1) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Todo el contenido visible encima de las manchas */
+    header, main, footer { position: relative; z-index: 1; }
+
+    /* ══════════════════════════════════════════════════════════
+       CORRECCIÓN CLAVE: El modal debe vivir fuera del flujo
+       normal y nunca dentro de un contenedor con overflow:hidden.
+       Se asegura que el backdrop y el modal estén siempre
+       accesibles en el z-index correcto.
+    ══════════════════════════════════════════════════════════ */
+    .modal-backdrop {
+      /* Forzar que el backdrop de Bootstrap quede debajo del modal
+         pero encima del contenido, y que sea clickeable */
+      z-index: 1040 !important;
+    }
+    .modal {
+      z-index: 1050 !important;
+    }
+    /* Garantizar que el body NO quede bloqueado al cerrar */
+    body.modal-open {
+      overflow: auto !important;
+      padding-right: 0 !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════════════════════ */
+    header {
+      background: var(--forest);
+      padding: 52px 24px 44px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23a8c49a' opacity='0.22'/%3E%3Ccircle cx='0' cy='0' r='1' fill='%23a8c49a' opacity='0.12'/%3E%3Ccircle cx='60' cy='60' r='1' fill='%23a8c49a' opacity='0.12'/%3E%3Ccircle cx='0' cy='60' r='1' fill='%23a8c49a' opacity='0.12'/%3E%3Ccircle cx='60' cy='0' r='1' fill='%23a8c49a' opacity='0.12'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 5%, var(--gold) 30%, var(--terra) 70%, transparent 95%);
+    }
+
+    .header-eyebrow {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: .65rem;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-weight: 900;
+      font-size: clamp(2.4rem, 7vw, 4rem);
+      color: var(--cream);
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+
+    h1 em { font-style: normal; color: var(--gold); }
+
+    .header-sub {
+      font-family: 'Caveat', cursive;
+      font-size: clamp(1rem, 3vw, 1.3rem);
+      color: var(--sage);
+      margin-top: 10px;
+      letter-spacing: 1px;
+    }
+
+    /* Pokébola decorativa */
+    .deco-ball {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 2.5px solid var(--gold);
+      position: relative;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .deco-ball::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 50%;
+      background: var(--terra);
+    }
+    .deco-ball::after {
+      content: '';
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--cream);
+      border: 2px solid var(--gold);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       MAIN PANEL
+    ══════════════════════════════════════════════════════════ */
+    .main-panel {
+      max-width: 660px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       SEARCH BOX
+    ══════════════════════════════════════════════════════════ */
+    .search-box {
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 30px 28px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      /* SIN overflow:hidden aquí para no atrapar el modal */
+    }
+
+    .search-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 5px;
+      background: linear-gradient(180deg, var(--terra), var(--gold));
+      border-radius: 4px 0 0 4px;
+    }
+
+    .search-label {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.1rem;
+      color: var(--forest);
+      display: block;
+      margin-bottom: 16px;
+    }
+
+    .input-wrap {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    #pokemonInput {
+      flex: 1;
+      background: var(--cream);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 400;
+      padding: 13px 18px;
+      outline: none;
+      transition: border-color .25s, box-shadow .25s;
+    }
+
+    #pokemonInput:focus {
+      border-color: var(--forest-mid);
+      box-shadow: 0 0 0 3px rgba(61,107,61,.12);
+    }
+
+    #pokemonInput::placeholder { color: #b0a898; }
+
+    .btn-consultar {
+      background: var(--forest);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: .8rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 13px 22px;
+      cursor: pointer;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      white-space: nowrap;
+    }
+
+    .btn-consultar:hover {
+      background: var(--forest-mid);
+      box-shadow: 0 6px 20px rgba(45,74,45,.3);
+    }
+    .btn-consultar:active { transform: scale(.97); }
+
+    /* ══════════════════════════════════════════════════════════
+       LOADING
+    ══════════════════════════════════════════════════════════ */
+    .loading-wrap { display: none; text-align: center; padding: 20px 0; }
+    .loading-wrap.show { display: block; }
+
+    .leaf-spinner {
+      display: inline-block;
+      width: 32px; height: 32px;
+      border: 3px solid var(--sage);
+      border-top-color: var(--forest);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: 'Caveat', cursive;
+      font-size: 1.1rem;
+      color: var(--moss);
+      margin-top: 10px;
+      letter-spacing: 1px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       ERROR
+    ══════════════════════════════════════════════════════════ */
+    #errorMsg {
+      display: none;
+      background: #fff7f5;
+      border: 1.5px solid rgba(196,103,58,.3);
+      border-left: 4px solid var(--terra);
+      border-radius: var(--radius-sm);
+      color: var(--terra);
+      font-size: .92rem;
+      padding: 14px 20px;
+      margin-bottom: 24px;
+    }
+    #errorMsg.show { display: block; }
+
+    /* ══════════════════════════════════════════════════════════
+       POKÉMON CARD
+       CORRECCIÓN: sin overflow:hidden en la card completa.
+       El overflow:hidden solo se aplica en card-top (cabecera)
+       para el efecto visual del círculo decorativo, pero NUNCA
+       en el contenedor padre que envuelve el botón del modal.
+    ══════════════════════════════════════════════════════════ */
+    #pokeCard {
+      display: none;
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      /* ❌ ELIMINADO: overflow: hidden  ← esta era la causa del bug */
+      box-shadow: var(--shadow-soft);
+      animation: riseUp .4s cubic-bezier(.22,.68,0,1.2) both;
+    }
+    #pokeCard.show { display: block; }
+
+    @keyframes riseUp {
+      from { opacity: 0; transform: translateY(24px) scale(.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Cabecera verde — overflow:hidden solo aquí para el círculo deco */
+    .card-top {
+      background: var(--forest);
+      padding: 28px 32px 24px;
+      position: relative;
+      overflow: hidden;                /* ✅ Solo en la cabecera, no en la card */
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* esquinas redondeadas arriba */
+    }
+
+    .card-top::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; right: -40px;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 20px solid rgba(168,196,154,.15);
+    }
+
+    .poke-number {
+      font-size: .65rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 6px;
+    }
+
+    .poke-name {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-style: italic;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      color: var(--cream);
+      text-transform: capitalize;
+      line-height: 1;
+    }
+
+    .poke-name-accent {
+      display: block;
+      font-family: 'Caveat', cursive;
+      font-size: 1rem;
+      color: var(--gold);
+      font-style: normal;
+      margin-top: 4px;
+    }
+
+    /* Cuerpo */
+    .card-body-custom { padding: 28px 32px 30px; }
+
+    /* Divider botánico */
+    .divider-botanical {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .divider-botanical::before,
+    .divider-botanical::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+    .divider-botanical span {
+      font-size: .65rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--moss);
+      white-space: nowrap;
+    }
+
+    /* Stats */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .stat-pill {
+      background: var(--cream);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-pill::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 3px;
+      background: var(--gold);
+    }
+
+    .stat-pill-label {
+      font-size: .6rem;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--moss);
+      margin-bottom: 5px;
+    }
+
+    .stat-pill-value {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--forest);
+    }
+
+    /* Movimientos */
+    .moves-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+
+    .move-tag {
+      background: var(--cream-dark);
+      border: 1.5px solid rgba(107,143,94,.3);
+      border-radius: 100px;
+      padding: 9px 16px;
+      font-size: .82rem;
+      font-weight: 500;
+      color: var(--forest);
+      text-align: center;
+      transition: background .2s, border-color .2s;
+    }
+
+    .move-tag::before {
+      content: '◆ ';
+      font-size: .45rem;
+      color: var(--terra);
+      vertical-align: middle;
+    }
+
+    .move-tag:hover {
+      background: var(--sage);
+      border-color: var(--forest-mid);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       BOTÓN VER SPRITES
+       CORRECCIÓN: el botón activa el modal vía JavaScript puro
+       (sin data-bs-toggle/data-bs-target en el HTML) para evitar
+       que Bootstrap intente buscar el modal dentro del mismo
+       árbol DOM que tiene overflow:hidden en algún ancestro.
+    ══════════════════════════════════════════════════════════ */
+    .btn-ver-img {
+      width: 100%;
+      background: transparent;
+      border: 1.5px solid var(--terra);
+      border-radius: 100px;
+      color: var(--terra);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: .8rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 14px;
+      cursor: pointer;
+      transition: background .2s, color .2s, box-shadow .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-ver-img::before { content: '◉'; font-size: 1rem; }
+
+    .btn-ver-img:not(:disabled):hover {
+      background: var(--terra);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(196,103,58,.3);
+    }
+
+    .btn-ver-img:disabled {
+      border-color: #d9cfc4;
+      color: #c5b8a8;
+      cursor: not-allowed;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       MODAL
+       CORRECCIÓN: el modal está colocado como hijo directo de
+       <body> (al final del documento), FUERA de cualquier
+       contenedor con overflow:hidden o z-index problemático.
+    ══════════════════════════════════════════════════════════ */
+    .modal-content {
+      background: var(--cream);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      background: var(--forest);
+      border: none;
+      padding: 20px 28px;
+    }
+
+    .modal-title {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.2rem;
+      color: var(--cream);
+    }
+
+    .modal-title small {
+      font-family: 'Caveat', cursive;
+      font-style: normal;
+      color: var(--gold);
+      margin-left: 8px;
+      font-size: .95rem;
+    }
+
+    .btn-close { filter: invert(1) brightness(.7); }
+
+    .modal-body { padding: 40px 28px 44px; }
+
+    .sprites-row {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .sprite-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .sprite-frame {
+      width: 160px; height: 160px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid rgba(107,143,94,.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 0 0 6px var(--cream-dark),
+        0 0 0 8px rgba(107,143,94,.2),
+        0 8px 28px rgba(45,74,45,.12);
+      transition: transform .3s ease, box-shadow .3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sprite-frame::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.55), transparent 60%);
+      pointer-events: none;
+    }
+
+    .sprite-frame:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow:
+        0 0 0 6px var(--cream-dark),
+        0 0 0 8px rgba(107,143,94,.3),
+        0 16px 40px rgba(45,74,45,.18);
+    }
+
+    .sprite-frame img {
+      width: 110px; height: 110px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .sprite-label {
+      font-family: 'Caveat', cursive;
+      font-size: 1rem;
+      color: var(--moss);
+      letter-spacing: 1px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════════════ */
+    footer {
+      text-align: center;
+      padding: 0 20px 32px;
+      position: relative;
+      z-index: 1;
+    }
+    .footer-text {
+      font-family: 'Caveat', cursive;
+      font-size: .9rem;
+      color: var(--moss);
+      letter-spacing: 1px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════════════════ */
+    @media (max-width: 480px) {
+      .input-wrap { flex-direction: column; }
+      .btn-consultar { width: 100%; }
+      .stats-row, .moves-grid { grid-template-columns: 1fr; }
+      .card-body-custom { padding: 22px 20px 24px; }
+      .card-top { padding: 22px 20px 18px; }
+      .sprite-frame { width: 130px; height: 130px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="blob-bottom"></div>
+
+  <!-- ═══════════════════════ HEADER ══════════════════════════ -->
+  <header>
+    <div class="deco-ball"></div>
+    <span class="header-eyebrow">Microservicio · Pokédex</span>
+    <h1>Poke<em>Service</em></h1>
+    <p class="header-sub">Tu guía de campo Pokémon</p>
+  </header>
+
+  <!-- ═════════════════════════ MAIN ══════════════════════════ -->
+  <main class="main-panel">
+
+    <!-- Buscador -->
+    <div class="search-box">
+      <label class="search-label" for="pokemonInput">¿Qué Pokémon deseas consultar?</label>
+      <div class="input-wrap">
+        <input
+          type="text"
+          id="pokemonInput"
+          placeholder="ej. charizard, flygon, venusaur…"
+          autocomplete="off"
+        />
+        <button class="btn-consultar" id="btnConsultar">Buscar</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-wrap" id="loading">
+      <div class="leaf-spinner"></div>
+      <p class="loading-text">Rastreando en la Pokédex…</p>
+    </div>
+
+    <!-- Error -->
+    <div id="errorMsg"></div>
+
+    <!-- Card resultado -->
+    <div id="pokeCard">
+      <!-- Cabecera verde (overflow:hidden SOLO aquí, no en la card completa) -->
+      <div class="card-top">
+        <div class="poke-number" id="pokeId">#000</div>
+        <div class="poke-name" id="pokeName">
+          —
+          <span class="poke-name-accent" id="pokeNameSub">Esperando consulta</span>
+        </div>
+      </div>
+
+      <!-- Cuerpo -->
+      <div class="card-body-custom">
+
+        <div class="divider-botanical"><span>Datos físicos</span></div>
+
+        <div class="stats-row">
+          <div class="stat-pill">
+            <div class="stat-pill-label">Peso</div>
+            <div class="stat-pill-value" id="pokePeso">—</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-pill-label">Altura</div>
+            <div class="stat-pill-value" id="pokeAltura">—</div>
+          </div>
+        </div>
+
+        <div class="divider-botanical"><span>Movimientos competitivos</span></div>
+
+        <div class="moves-grid" id="movesGrid"></div>
+
+        <!--
+          CORRECCIÓN: Se eliminaron los atributos data-bs-toggle y data-bs-target.
+          El modal ahora se abre desde JavaScript con modalSprites.show(),
+          lo que garantiza que Bootstrap lo inserte correctamente en el DOM
+          sin conflictos de z-index ni overflow.
+        -->
+        <button class="btn-ver-img" id="btnVerImg" disabled>
+          Ver sprites
+        </button>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════════════ FOOTER ══════════════════════════ -->
+  <footer>
+    <p class="footer-text">PokeService · Herbario Digital Pokémon ✦ 2025</p>
+  </footer>
+
+  <!--
+    ═══════════════════ MODAL SPRITES ═══════════════════════
+    CORRECCIÓN: El modal es hijo DIRECTO de <body>.
+    Esto es fundamental: si el modal estuviera anidado dentro
+    de un div con overflow:hidden, el backdrop quedaría cortado
+    y no se podría hacer clic en nada.
+    Bootstrap necesita que el modal esté al nivel raíz del body.
+  -->
+  <div class="modal fade" id="modalSprites" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title" id="modalLabel">
+            Sprites
+            <small id="modalPokeName">—</small>
+          </span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="sprites-row">
+            <div class="sprite-col">
+              <div class="sprite-frame">
+                <img id="imgFrontal" src="" alt="Sprite frontal" />
+              </div>
+              <span class="sprite-label">Vista frontal</span>
+            </div>
+            <div class="sprite-col">
+              <div class="sprite-frame">
+                <img id="imgPosterior" src="" alt="Sprite posterior" />
+              </div>
+              <span class="sprite-label">Vista posterior</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ── Referencias al DOM ────────────────────────────────────
+    const input     = document.getElementById('pokemonInput');
+    const btnBuscar = document.getElementById('btnConsultar');
+    const loadingEl = document.getElementById('loading');
+    const errorDiv  = document.getElementById('errorMsg');
+    const pokeCard  = document.getElementById('pokeCard');
+    const btnVerImg = document.getElementById('btnVerImg');
+
+    /*
+      CORRECCIÓN CLAVE: Instanciar el modal manualmente con JavaScript.
+      Al usar `new bootstrap.Modal(el)` en lugar de data-bs-toggle,
+      Bootstrap gestiona correctamente el backdrop y el scroll del body,
+      evitando que el overlay quede bloqueado después de cerrar el modal.
+    */
+    const modalEl      = document.getElementById('modalSprites');
+    const modalSprites = new bootstrap.Modal(modalEl, {
+      backdrop: true,   // El clic en el backdrop cierra el modal
+      keyboard: true,   // La tecla ESC cierra el modal
+      focus: true       // El foco va al modal al abrirse
+    });
+
+    /*
+      Listener de limpieza: cuando Bootstrap termina de ocultar el modal,
+      nos aseguramos de que el body recupere el scroll y no quede ningún
+      backdrop fantasma en el DOM.
+    */
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+      // Eliminar cualquier backdrop residual que Bootstrap no haya limpiado
+      document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    });
+
+    // ── Utilidades de UI ──────────────────────────────────────
+
+    function setLoading(on) {
+      loadingEl.classList.toggle('show', on);
+      if (on) { hideCard(); hideError(); }
+    }
+
+    function hideCard() {
+      pokeCard.classList.remove('show');
+      btnVerImg.disabled = true;
+    }
+
+    function showError(msg) {
+      errorDiv.textContent = '⚠ ' + msg;
+      errorDiv.classList.add('show');
+    }
+
+    function hideError() {
+      errorDiv.classList.remove('show');
+    }
+
+    /** Rellena la card con los datos recibidos de la API */
+    function renderPokemon(data) {
+      // Número e ID
+      document.getElementById('pokeId').textContent = `#${String(data.id).padStart(3, '0')}`;
+
+      // Nombre (el firstChild es el nodo de texto antes del <span>)
+      const nameDiv = document.getElementById('pokeName');
+      nameDiv.firstChild.textContent =
+        data.nombre.charAt(0).toUpperCase() + data.nombre.slice(1);
+      document.getElementById('pokeNameSub').textContent = 'Registro Pokédex encontrado ✓';
+
+      // Stats
+      document.getElementById('pokePeso').textContent   = data.peso;
+      document.getElementById('pokeAltura').textContent = data.altura;
+
+      // Movimientos
+      const grid = document.getElementById('movesGrid');
+      grid.innerHTML = '';
+      (data.poderes || []).forEach(m => {
+        const tag = document.createElement('div');
+        tag.className   = 'move-tag';
+        tag.textContent = m;
+        grid.appendChild(tag);
+      });
+
+      // Cargar sprites en el modal
+      document.getElementById('imgFrontal').src   = data.imagenFrontal;
+      document.getElementById('imgPosterior').src = data.imagenPosterior;
+      document.getElementById('modalPokeName').textContent =
+        data.nombre.charAt(0).toUpperCase() + data.nombre.slice(1);
+
+      // Mostrar card y habilitar botón
+      pokeCard.classList.add('show');
+      btnVerImg.disabled = false;
+    }
+
+    // ── Abrir modal desde el botón (JS puro, sin data-bs-toggle) ──
+    btnVerImg.addEventListener('click', () => {
+      if (!btnVerImg.disabled) {
+        modalSprites.show();
+      }
+    });
+
+    // ── Consulta principal ────────────────────────────────────
+    async function consultarPokemon() {
+      const nombre = input.value.trim();
+      if (!nombre) {
+        showError('Por favor escribe el nombre de un Pokémon.');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const res  = await fetch(
+          `http://localhost:3000/pokemon/${encodeURIComponent(nombre.toLowerCase())}`
+        );
+        const data = await res.json();
+        setLoading(false);
+
+        if (!res.ok) {
+          showError(data.error || 'Pokémon no encontrado en la base de datos.');
+          return;
+        }
+
+        renderPokemon(data);
+
+      } catch (err) {
+        setLoading(false);
+        showError(
+          'No se pudo conectar con el servidor. ' +
+          'Verifica que el backend esté activo en http://localhost:3000'
+        );
+        console.error(err);
+      }
+    }
+
+    // ── Eventos de búsqueda ───────────────────────────────────
+    btnBuscar.addEventListener('click', consultarPokemon);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') consultarPokemon();
+    });
+  </script>
+</body>
+</html>
