@@ -891,7 +891,7 @@
 
       try {
         const res  = await fetch(
-          `http://localhost:3000/pokemon/${encodeURIComponent(nombre.toLowerCase())}`
+          `https://pokeserviceonline.onrender.com/pokemon/${encodeURIComponent(nombre.toLowerCase())}`
         );
         const data = await res.json();
         setLoading(false);
@@ -907,7 +907,7 @@
         setLoading(false);
         showError(
           'No se pudo conectar con el servidor. ' +
-          'Verifica que el backend esté activo en http://localhost:3000'
+          'Verifica que el backend esté activo en https://pokeserviceonline.onrender.com/pokemon/{nombre}'
         );
         console.error(err);
       }
