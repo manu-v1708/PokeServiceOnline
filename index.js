@@ -1,7 +1,7 @@
 // ============================================================
 //  POKESERVICE – Backend producción
 //  Stack: Node.js · Express · node-fetch · cors · swagger
-//  Base de datos: Supabase (PostgreSQL via REST API)
+//  Base de datos: Supabase (nuevas API keys 2025)
 //  Deploy: Render
 // ============================================================
 
@@ -13,9 +13,9 @@ const swaggerJsDoc = require('swagger-jsdoc');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Credenciales Supabase ─────────────────────────────────
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cazxvbycmisoljeuonct.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhenh2YnljbWlzb2xqZXVvbmN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTEwMzUsImV4cCI6MjA5MzQ4NzAzNX0.dvNlPXVieeaQ8louQrNMP7MTxPOpUUQCIrxfh4gkXjM';
+// ── Credenciales Supabase (nuevas keys 2025) ──────────────
+const SUPABASE_URL        = 'https://cazxvbycmisoljeuonct.supabase.co';
+const SUPABASE_SECRET_KEY = 'sb_secret_xL3639mY4IAKfvfP5ai54A__60AnYug';
 
 // Nombre exacto de la tabla en Supabase
 const TABLE_NAME = 'PokeService';
@@ -23,8 +23,8 @@ const TABLE_NAME = 'PokeService';
 // ── Middlewares ───────────────────────────────────────────
 app.use(express.json());
 app.use(cors({
-  origin     : '*',
-  methods    : ['GET', 'OPTIONS'],
+  origin        : '*',
+  methods       : ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'apikey']
 }));
 
@@ -37,8 +37,6 @@ async function buscarPokemonEnSupabase(nombreOriginal) {
   const nombreCapitalizado =
     nombreOriginal.charAt(0).toUpperCase() + nombreOriginal.slice(1).toLowerCase();
 
-  // ✅ CORRECCIÓN: Los nombres de columnas en Supabase están en minúsculas
-  // (imagenfrontal, imagenposterior) — se seleccionan explícitamente
   const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}`
     + `?select=id,nombre,peso,altura,imagenfrontal,imagenposterior,poderes`
     + `&nombre=eq.${encodeURIComponent(nombreCapitalizado)}`
@@ -49,8 +47,9 @@ async function buscarPokemonEnSupabase(nombreOriginal) {
   const response = await fetch(url, {
     method : 'GET',
     headers: {
-      'apikey'       : SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      // Usar la Secret key como Authorization para bypassear RLS
+      'Authorization': `Bearer ${SUPABASE_SECRET_KEY}`,
+      'apikey'       : SUPABASE_SECRET_KEY,
       'Content-Type' : 'application/json',
       'Accept'       : 'application/json'
     }
@@ -62,7 +61,7 @@ async function buscarPokemonEnSupabase(nombreOriginal) {
   }
 
   const data = await response.json();
-  console.log(`📦 Resultado:`, JSON.stringify(data));
+  console.log(`📦 Resultado Supabase:`, JSON.stringify(data));
   return data.length > 0 ? data[0] : null;
 }
 
@@ -72,8 +71,8 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title      : 'PokeService API',
-      version    : '3.0.0',
-      description: 'Microservicio REST – Supabase + Render'
+      version    : '4.0.0',
+      description: 'Microservicio REST – Supabase nuevas keys + Render'
     },
     servers: [
       { url: 'https://pokeserviceonline.onrender.com', description: 'Producción' },
@@ -129,15 +128,14 @@ app.get('/pokemon/:nombre', async (req, res) => {
       catch (_) { poderes = [poke.poderes]; }
     }
 
-    // ✅ Mapear nombres de columnas Supabase (minúsculas)
-    //    a los nombres que espera el frontend (camelCase)
+    // Mapear columnas Supabase (minúsculas) a camelCase para el frontend
     res.json({
       id             : poke.id,
       nombre         : poke.nombre,
       peso           : poke.peso,
       altura         : poke.altura,
-      imagenFrontal  : poke.imagenfrontal,    // Supabase → imagenfrontal
-      imagenPosterior: poke.imagenposterior,  // Supabase → imagenposterior
+      imagenFrontal  : poke.imagenfrontal,
+      imagenPosterior: poke.imagenposterior,
       poderes        : poderes
     });
 
@@ -161,7 +159,7 @@ app.get('/', (_req, res) => {
   res.json({
     message: '🚀 PokeService API en línea',
     docs   : '/api-docs',
-    version: '3.0.0 – columnas Supabase corregidas'
+    version: '4.0.0 – nuevas Supabase keys'
   });
 });
 
