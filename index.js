@@ -35,7 +35,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  */
 app.get('/pokemon/:nombre', async (req, res) => {
   const { nombre } = req.params;
-  const query = 'SELECT * FROM pokemon WHERE nombre = $1';
+  const query = 'SELECT * FROM "PokeService" WHERE nombre = $1';
 
   try {
     const results = await db.query(query, [nombre.toLowerCase()]);
