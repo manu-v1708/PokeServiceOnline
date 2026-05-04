@@ -33,7 +33,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *   get:
  *     summary: Busca un Pokémon por nombre.
  */
-app.get('/pokemon/:nombre', async (req, res) => {
+app.get('/PokeService/:nombre', async (req, res) => {
   const { nombre } = req.params;
   const query = 'SELECT * FROM "PokeService" WHERE nombre = $1';
 
